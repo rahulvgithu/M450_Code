@@ -1,0 +1,9 @@
+{
+  "name": "Parksystem",
+  "version": "1.2.0",
+  "description": "Hardwareunabhaengige Logik des Parksystems (Kasse und Schranke) mit Schnittstellen fuer Test Doubles",
+  "authors": [{ "name": "Rahul Vaikunthavasan" }],
+  "frameworks": "*",
+  "platforms": "*",
+  "build": { "flags": "-std=gnu++17" }
+}

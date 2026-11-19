@@ -1,0 +1,255 @@
+#include "KasseLogik.h"
+#include "Kennzeichen.h"
+#include "Tarif.h"
+#include "Text.h"
+
+static const char *VERSION = "1.2";
+
+KasseLogik::KasseLogik(IUhr &uhr, IParkSpeicher &speicher, IAnzeige &anzeige)
+    : uhr_(uhr), speicher_(speicher), anzeige_(anzeige) {}
+
+Parkvorgang *KasseLogik::finde(const std::string &kz) const {
+    return speicher_.finde(kennzeichen::normalisiere(kz));
+}
+
+// ------------------------------------------------------------
+// Zeit
+// ------------------------------------------------------------
+
+std::string KasseLogik::zeitText(unsigned long ms) const {
+    if (!uhrGesetzt_) return text::zahl(ms / 1000UL) + " s nach Start";
+    unsigned long sek = (uhrBasisSek_ + (ms - uhrBasisMs_) / 1000UL) % 86400UL;
+    std::string t = text::zweistellig(sek / 3600UL) + ":" + text::zweistellig((sek / 60UL) % 60UL) +
+                    ":" + text::zweistellig(sek % 60UL);
+    return datum_.empty() ? t : datum_ + " " + t;
+}
+
+// Format: T HH:MM:SS  oder  T TT.MM.JJJJ HH:MM:SS
+void KasseLogik::uhrStellen(const std::string &argument) {
+    std::string arg = text::trim(argument);
+    std::string zeit = arg;
+    std::string neuesDatum;
+    size_t leer = arg.find(' ');
+    if (leer != std::string::npos && leer > 0) {
+        neuesDatum = arg.substr(0, leer);
+        zeit = text::trim(arg.substr(leer + 1));
+    }
+    bool formatOk = zeit.size() == 8 && zeit[2] == ':' && zeit[5] == ':';
+    for (int i : {0, 1, 3, 4, 6, 7}) {
+        if (formatOk && (zeit[i] < '0' || zeit[i] > '9')) formatOk = false;
+    }
+    if (!formatOk) {
+        anzeige_.zeige("FEHLER: Format T HH:MM:SS oder T TT.MM.JJJJ HH:MM:SS");
+        return;
+    }
+    auto zweiZiffern = [&](int i) { return (unsigned long)((zeit[i] - '0') * 10 + (zeit[i + 1] - '0')); };
+    unsigned long h = zweiZiffern(0);
+    unsigned long m = zweiZiffern(3);
+    unsigned long s = zweiZiffern(6);
+    if (h > 23 || m > 59 || s > 59) {
+        anzeige_.zeige("FEHLER: Ungueltige Uhrzeit.");
+        return;
+    }
+    uhrBasisSek_ = h * 3600UL + m * 60UL + s;
+    uhrBasisMs_ = uhr_.jetztMs();
+    uhrGesetzt_ = true;
+    if (!neuesDatum.empty()) datum_ = neuesDatum;
+    anzeige_.zeige("OK: Uhr gestellt auf " + zeitText(uhr_.jetztMs()));
+}
+
+void KasseLogik::protokolliere(const std::string &t) {
+    std::string eintrag = "[" + zeitText(uhr_.jetztMs()) + "] " + t;
+    log_.push_back(eintrag);
+    if ((int)log_.size() > MAX_LOG) log_.pop_front();
+    anzeige_.zeige("LOG " + eintrag);
+}
+
+// ------------------------------------------------------------
+// Einfahrt / Ausfahrt (Anfragen von Pico 2)
+// ------------------------------------------------------------
+
+std::string KasseLogik::einfahrt(const std::string &eingabe) {
+    std::string kz = kennzeichen::normalisiere(eingabe);
+    if (kz.empty()) return "Kennzeichen nicht erkannt";
+    if (!kennzeichen::istGueltig(kz)) {
+        protokolliere("EINFAHRT ABGELEHNT " + kz + " (ungueltiges Kennzeichen)");
+        return "Ungueltiges Kennzeichen";
+    }
+    if (speicher_.finde(kz) != nullptr) {
+        protokolliere("EINFAHRT ABGELEHNT " + kz + " (bereits im Parkhaus)");
+        return "Fahrzeug bereits im Parkhaus";
+    }
+    Parkvorgang neu;
+    neu.kennzeichen = kz;
+    neu.einfahrtMs = uhr_.jetztMs();
+    int platz = 0;
+    if (!speicher_.hinzufuegen(neu, platz)) {
+        protokolliere("EINFAHRT ABGELEHNT " + kz + " (Parkhaus voll)");
+        return "Parkhaus voll";
+    }
+    protokolliere("EINFAHRT " + kz + " Platz " + text::zahl(platz) + " (" + text::zahl(speicher_.anzahl()) + "/" +
+                  text::zahl(speicher_.kapazitaet()) + " belegt)");
+    return "";
+}
+
+std::string KasseLogik::ausfahrt(const std::string &eingabe) {
+    std::string kz = kennzeichen::normalisiere(eingabe);
+    Parkvorgang *p = speicher_.finde(kz);
+    if (p == nullptr) {
+        protokolliere("AUSFAHRT ABGELEHNT " + kz + " (kein aktiver Parkvorgang)");
+        return "Kein aktiver Parkvorgang";
+    }
+    if (!p->bezahlt) {
+        protokolliere("AUSFAHRT ABGELEHNT " + kz + " (unbezahlt)");
+        return "Bitte zuerst an der Kasse bezahlen (" + text::betrag(gebuehrRappen(kz)) + ")";
+    }
+    Parkvorgang abgeschlossen = *p;
+    abgeschlossen.ausfahrtMs = uhr_.jetztMs();
+    speicher_.entfernen(kz);
+    historie_.push_back(abgeschlossen);
+    if ((int)historie_.size() > MAX_HISTORIE) historie_.pop_front();
+    protokolliere("AUSFAHRT " + kz + " abgeschlossen");
+    return "";
+}
+
+std::string KasseLogik::verarbeiteAnfrage(const std::string &eingabe) {
+    std::string zeile = text::trim(eingabe);
+    if (zeile.empty()) return "";
+    if (zeile == "PING") return "PONG";
+    if (zeile == "HELP") {
+        protokolliere("HILFERUF von Pico 2 (Schranke)");
+        anzeige_.zeige("!!! HILFERUF AN DER SCHRANKE !!!");
+        return "OK HELP";
+    }
+    if (text::beginntMit(zeile, "REG")) {
+        std::string kz = kennzeichen::normalisiere(zeile.substr(3));
+        std::string fehler = einfahrt(kz);
+        return fehler.empty() ? "OK REG " + kz : "ERR REG " + fehler;
+    }
+    if (text::beginntMit(zeile, "EXIT")) {
+        std::string kz = kennzeichen::normalisiere(zeile.substr(4));
+        std::string fehler = ausfahrt(kz);
+        return fehler.empty() ? "OK EXIT " + kz : "ERR EXIT " + fehler;
+    }
+    return "ERR Unbekannte Anfrage";
+}
+
+// ------------------------------------------------------------
+// Kasse: Gebuehr, Zahlung, Liste
+// ------------------------------------------------------------
+
+unsigned long KasseLogik::gebuehrRappen(const std::string &kz) const {
+    Parkvorgang *p = finde(kz);
+    if (p == nullptr) return 0;
+    if (p->bezahlt) return p->betragRappen;
+    return tarif::gebuehrRappen(uhr_.jetztMs() - p->einfahrtMs);
+}
+
+void KasseLogik::gebuehrAnzeigen(const std::string &kz) {
+    Parkvorgang *p = finde(kz);
+    if (p == nullptr) {
+        anzeige_.zeige("FEHLER: Kein aktiver Parkvorgang.");
+        return;
+    }
+    unsigned long dauerMs = uhr_.jetztMs() - p->einfahrtMs;
+    anzeige_.zeige("Kennzeichen:    " + p->kennzeichen);
+    anzeige_.zeige("Einfahrt:       " + zeitText(p->einfahrtMs));
+    anzeige_.zeige("Parkdauer:      " + text::zahl(dauerMs / 1000UL) + " Sekunden");
+    anzeige_.zeige("Gebuehr:        " + text::betrag(gebuehrRappen(kz)));
+    anzeige_.zeige(std::string("Zahlungsstatus: ") + (p->bezahlt ? "BEZAHLT" : "UNBEZAHLT"));
+}
+
+void KasseLogik::bezahlen(const std::string &kz) {
+    Parkvorgang *p = finde(kz);
+    if (p == nullptr) {
+        anzeige_.zeige("FEHLER: Kein aktiver Parkvorgang.");
+        return;
+    }
+    if (p->bezahlt) {
+        anzeige_.zeige("INFO: Bereits bezahlt.");
+        return;
+    }
+    p->betragRappen = tarif::gebuehrRappen(uhr_.jetztMs() - p->einfahrtMs);
+    p->bezahlt = true;
+    anzeige_.zeige("Zahlungsmethode: Karte");
+    anzeige_.zeige("ZAHLUNG ERFOLGREICH: " + text::betrag(p->betragRappen));
+    protokolliere("ZAHLUNG " + p->kennzeichen + " " + text::betrag(p->betragRappen) + " erfolgreich");
+}
+
+void KasseLogik::zahlungAbbrechen(const std::string &kz) {
+    Parkvorgang *p = finde(kz);
+    if (p == nullptr) {
+        anzeige_.zeige("FEHLER: Kein aktiver Parkvorgang.");
+        return;
+    }
+    if (p->bezahlt) {
+        anzeige_.zeige("INFO: Bereits bezahlt.");
+        return;
+    }
+    anzeige_.zeige("ZAHLUNG FEHLGESCHLAGEN: Vorgang abgebrochen. Status bleibt UNBEZAHLT.");
+    protokolliere("ZAHLUNG " + p->kennzeichen + " fehlgeschlagen/abgebrochen");
+}
+
+void KasseLogik::listeAnzeigen() {
+    anzeige_.zeige("Aktive Parkvorgaenge (" + text::zahl(speicher_.anzahl()) + "/" +
+                   text::zahl(speicher_.kapazitaet()) + "):");
+    for (int i = 1; i <= speicher_.kapazitaet(); i++) {
+        const Parkvorgang *p = speicher_.platz(i);
+        if (p == nullptr) continue;
+        anzeige_.zeige("  Platz " + text::zahl(i) + ": " + p->kennzeichen + " | Einfahrt " + zeitText(p->einfahrtMs) +
+                       " | IM PARKHAUS | " + (p->bezahlt ? "BEZAHLT" : "UNBEZAHLT"));
+    }
+}
+
+void KasseLogik::protokollAnzeigen() {
+    anzeige_.zeige("Abgeschlossene Parkvorgaenge:");
+    for (const Parkvorgang &p : historie_) {
+        anzeige_.zeige("  " + p.kennzeichen + " | Einfahrt " + zeitText(p.einfahrtMs) + " | Ausfahrt " +
+                       zeitText(p.ausfahrtMs) + " | " + text::betrag(p.betragRappen) + " | ABGESCHLOSSEN");
+    }
+    anzeige_.zeige("Ereignisprotokoll:");
+    for (const std::string &e : log_) anzeige_.zeige("  " + e);
+}
+
+void KasseLogik::hilfe() {
+    anzeige_.zeige("");
+    anzeige_.zeige(std::string("=== PARKSYSTEM: PICO 1 KASSE v") + VERSION + " ===");
+    anzeige_.zeige("T 05.11.2026 13:30:00 - Datum/Uhrzeit stellen");
+    anzeige_.zeige("G LU12345 - Gebuehr anzeigen");
+    anzeige_.zeige("B LU12345 - Zahlung mit Karte (erfolgreich)");
+    anzeige_.zeige("X LU12345 - Zahlung abbrechen / fehlgeschlagen");
+    anzeige_.zeige("L         - Aktive Parkvorgaenge anzeigen");
+    anzeige_.zeige("P         - Historie und Ereignisprotokoll");
+    anzeige_.zeige("H         - Hilfe");
+    anzeige_.zeige("Ein- und Ausfahrt erfolgen ueber Pico 2 (Schranke).");
+    anzeige_.zeige("");
+}
+
+void KasseLogik::start() {
+    anzeige_.zeige("");
+    anzeige_.zeige("********************************");
+    anzeige_.zeige("PARKSYSTEM WIRD GESTARTET");
+    anzeige_.zeige(std::string("PICO 1 - KASSE v") + VERSION);
+    anzeige_.zeige("********************************");
+    hilfe();
+}
+
+void KasseLogik::befehl(const std::string &eingabe) {
+    std::string zeile = text::trim(eingabe);
+    if (zeile.empty()) return;
+    char b = (char)std::toupper((unsigned char)zeile[0]);
+    std::string argument = text::trim(zeile.substr(1));
+    switch (b) {
+        case 'T': uhrStellen(argument); break;
+        case 'G': gebuehrAnzeigen(argument); break;
+        case 'B': bezahlen(argument); break;
+        case 'X': zahlungAbbrechen(argument); break;
+        case 'L': listeAnzeigen(); break;
+        case 'P': protokollAnzeigen(); break;
+        case 'H': hilfe(); break;
+        default:
+            anzeige_.zeige("FEHLER: Unbekannter Befehl.");
+            anzeige_.zeige("Gib H fuer Hilfe ein.");
+            break;
+    }
+}

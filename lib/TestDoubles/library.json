@@ -1,0 +1,9 @@
+{
+  "name": "TestDoubles",
+  "version": "1.2.0",
+  "description": "Test Doubles (Dummy, Fake, Stub, Mock, Spy) fuer die automatisierten Tests. Wird nur von test/ eingebunden, nie von der Firmware.",
+  "authors": [{ "name": "Rahul Vaikunthavasan" }],
+  "frameworks": "*",
+  "platforms": "*",
+  "dependencies": [{ "name": "Parksystem" }]
+}
