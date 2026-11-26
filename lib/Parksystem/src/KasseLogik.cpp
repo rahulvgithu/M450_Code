@@ -109,8 +109,11 @@ std::string KasseLogik::verarbeiteAnfrage(const std::string &eingabe) {
 unsigned long KasseLogik::gebuehrRappen(const std::string &kz) const {
     Parkvorgang *p = finde(kz);
     if (p == nullptr) return 0;
-    if (p->bezahlt) return p->betragRappen;
-    return tarif::gebuehrRappen(uhr_.jetztMs() - p->einfahrtMs);
+    return p->bezahlt ? p->betragRappen : aktuelleGebuehr(*p);
+}
+
+unsigned long KasseLogik::aktuelleGebuehr(const Parkvorgang &p) const {
+    return tarif::gebuehrRappen(uhr_.jetztMs() - p.einfahrtMs);
 }
 
 void KasseLogik::gebuehrAnzeigen(const std::string &kz) {
@@ -137,7 +140,7 @@ void KasseLogik::bezahlen(const std::string &kz) {
         anzeige_.zeige("INFO: Bereits bezahlt.");
         return;
     }
-    p->betragRappen = tarif::gebuehrRappen(uhr_.jetztMs() - p->einfahrtMs);
+    p->betragRappen = aktuelleGebuehr(*p);
     p->bezahlt = true;
     anzeige_.zeige("Zahlungsmethode: Karte");
     anzeige_.zeige("ZAHLUNG ERFOLGREICH: " + text::betrag(p->betragRappen));
