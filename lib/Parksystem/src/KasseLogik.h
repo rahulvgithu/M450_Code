@@ -7,6 +7,7 @@
 #include <deque>
 #include <string>
 #include "Schnittstellen.h"
+#include "Wanduhr.h"
 
 class KasseLogik {
 public:
@@ -48,12 +49,8 @@ private:
     IUhr &uhr_;
     IParkSpeicher &speicher_;
     IAnzeige &anzeige_;
+    Wanduhr wanduhr_;
 
     std::deque<Parkvorgang> historie_;
     std::deque<std::string> log_;
-
-    bool uhrGesetzt_ = false;
-    unsigned long uhrBasisSek_ = 0;
-    unsigned long uhrBasisMs_ = 0;
-    std::string datum_;
 };

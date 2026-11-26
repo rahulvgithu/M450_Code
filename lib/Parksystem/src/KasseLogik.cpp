@@ -6,7 +6,7 @@
 #include "Version.h"
 
 KasseLogik::KasseLogik(IUhr &uhr, IParkSpeicher &speicher, IAnzeige &anzeige)
-    : uhr_(uhr), speicher_(speicher), anzeige_(anzeige) {}
+    : uhr_(uhr), speicher_(speicher), anzeige_(anzeige), wanduhr_(uhr) {}
 
 Parkvorgang *KasseLogik::finde(const std::string &kz) const {
     return speicher_.finde(kennzeichen::normalisiere(kz));
@@ -16,45 +16,11 @@ Parkvorgang *KasseLogik::finde(const std::string &kz) const {
 // Zeit
 // ------------------------------------------------------------
 
-std::string KasseLogik::zeitText(unsigned long ms) const {
-    if (!uhrGesetzt_) return text::zahl(ms / 1000UL) + " s nach Start";
-    unsigned long sek = (uhrBasisSek_ + (ms - uhrBasisMs_) / 1000UL) % 86400UL;
-    std::string t = text::zweistellig(sek / 3600UL) + ":" + text::zweistellig((sek / 60UL) % 60UL) +
-                    ":" + text::zweistellig(sek % 60UL);
-    return datum_.empty() ? t : datum_ + " " + t;
-}
+std::string KasseLogik::zeitText(unsigned long ms) const { return wanduhr_.text(ms); }
 
-// Format: T HH:MM:SS  oder  T TT.MM.JJJJ HH:MM:SS
 void KasseLogik::uhrStellen(const std::string &argument) {
-    std::string arg = text::trim(argument);
-    std::string zeit = arg;
-    std::string neuesDatum;
-    size_t leer = arg.find(' ');
-    if (leer != std::string::npos && leer > 0) {
-        neuesDatum = arg.substr(0, leer);
-        zeit = text::trim(arg.substr(leer + 1));
-    }
-    bool formatOk = zeit.size() == 8 && zeit[2] == ':' && zeit[5] == ':';
-    for (int i : {0, 1, 3, 4, 6, 7}) {
-        if (formatOk && (zeit[i] < '0' || zeit[i] > '9')) formatOk = false;
-    }
-    if (!formatOk) {
-        anzeige_.zeige("FEHLER: Format T HH:MM:SS oder T TT.MM.JJJJ HH:MM:SS");
-        return;
-    }
-    auto zweiZiffern = [&](int i) { return (unsigned long)((zeit[i] - '0') * 10 + (zeit[i + 1] - '0')); };
-    unsigned long h = zweiZiffern(0);
-    unsigned long m = zweiZiffern(3);
-    unsigned long s = zweiZiffern(6);
-    if (h > 23 || m > 59 || s > 59) {
-        anzeige_.zeige("FEHLER: Ungueltige Uhrzeit.");
-        return;
-    }
-    uhrBasisSek_ = h * 3600UL + m * 60UL + s;
-    uhrBasisMs_ = uhr_.jetztMs();
-    uhrGesetzt_ = true;
-    if (!neuesDatum.empty()) datum_ = neuesDatum;
-    anzeige_.zeige("OK: Uhr gestellt auf " + zeitText(uhr_.jetztMs()));
+    std::string fehler = wanduhr_.stellen(argument);
+    anzeige_.zeige(fehler.empty() ? "OK: Uhr gestellt auf " + zeitText(uhr_.jetztMs()) : fehler);
 }
 
 void KasseLogik::protokolliere(const std::string &t) {
