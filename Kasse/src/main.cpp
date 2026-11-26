@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <ArduinoAdapter.h>
 #include <KasseLogik.h>
 #include <RamParkSpeicher.h>
 
@@ -17,20 +18,6 @@
 
 const unsigned long UART_BAUD = 9600;
 const int MAX_PARKPLAETZE = 10;
-
-// ---------- Adapter: echte Implementierungen der Schnittstellen ----------
-
-// IUhr -> millis()
-class MillisUhr : public IUhr {
-public:
-    unsigned long jetztMs() const override { return millis(); }
-};
-
-// IAnzeige -> serieller Monitor (USB)
-class SerialAnzeige : public IAnzeige {
-public:
-    void zeige(const std::string &text) override { Serial.println(text.c_str()); }
-};
 
 MillisUhr uhr;
 SerialAnzeige anzeige;

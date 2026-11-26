@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <Servo.h>
+#include <ArduinoAdapter.h>
 #include <KassenProtokoll.h>
 #include <SchrankenLogik.h>
 
@@ -24,19 +25,7 @@ const int WINKEL_OFFEN = 90;
 const unsigned long UART_BAUD = 9600;
 const unsigned long ANTWORT_TIMEOUT_MS = 2000;
 
-// ---------- Adapter: echte Implementierungen der Schnittstellen ----------
-
-// IUhr -> millis()
-class MillisUhr : public IUhr {
-public:
-    unsigned long jetztMs() const override { return millis(); }
-};
-
-// IAnzeige -> serieller Monitor (USB)
-class SerialAnzeige : public IAnzeige {
-public:
-    void zeige(const std::string &text) override { Serial.println(text.c_str()); }
-};
+// ---------- Adapter, die nur Pico 2 braucht ----------
 
 // ISchranke -> Servo SG90
 class ServoSchranke : public ISchranke {

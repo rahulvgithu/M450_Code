@@ -1,0 +1,9 @@
+{
+  "name": "ArduinoAdapter",
+  "version": "1.2.0",
+  "description": "Gemeinsame Hardware-Adapter fuer beide Picos (millis, Serial). Nur fuer die Firmware, nicht fuer die Tests.",
+  "authors": [{ "name": "Rahul Vaikunthavasan" }],
+  "frameworks": "arduino",
+  "platforms": "raspberrypi",
+  "dependencies": [{ "name": "Parksystem" }]
+}
