@@ -29,16 +29,22 @@ public:
     bool ausfahrtOffen() const { return ausfahrt_.offen; }
 
 private:
+    enum class Richtung { Einfahrt, Ausfahrt };
+
     struct GesteuerteSchranke {
-        const char *name;
+        const char *name;        // "Einfahrtsschranke"
+        Richtung richtung;
+        const char *begruessung; // "Willkommen" / "Gute Fahrt"
         ISchranke &schranke;
         bool offen;
         unsigned long geoeffnetMs;
     };
 
-    void bearbeite(GesteuerteSchranke &s, bool istEinfahrt, const std::string &kennzeichen);
+    void bearbeite(GesteuerteSchranke &s, const std::string &kennzeichen);
+    KassenAntwort frageKasse(const GesteuerteSchranke &s, const std::string &kennzeichen);
     void oeffne(GesteuerteSchranke &s);
     void schliesse(GesteuerteSchranke &s);
+    void meldeBleibtGeschlossen(const GesteuerteSchranke &s);
     void status();
     void hilfe();
 

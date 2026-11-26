@@ -6,8 +6,8 @@
 
 SchrankenLogik::SchrankenLogik(ISchranke &einfahrt, ISchranke &ausfahrt, IKasse &kasse, IUhr &uhr,
                                IAnzeige &anzeige)
-    : einfahrt_{"Einfahrt", einfahrt, false, 0},
-      ausfahrt_{"Ausfahrt", ausfahrt, false, 0},
+    : einfahrt_{"Einfahrtsschranke", Richtung::Einfahrt, "Willkommen", einfahrt, false, 0},
+      ausfahrt_{"Ausfahrtsschranke", Richtung::Ausfahrt, "Gute Fahrt", ausfahrt, false, 0},
       kasse_(kasse),
       uhr_(uhr),
       anzeige_(anzeige) {}
@@ -24,13 +24,17 @@ void SchrankenLogik::oeffne(GesteuerteSchranke &s) {
     s.schranke.oeffnen();
     s.offen = true;
     s.geoeffnetMs = uhr_.jetztMs();
-    anzeige_.zeige(std::string(s.name) + "sschranke OFFEN");
+    anzeige_.zeige(std::string(s.name) + " OFFEN");
 }
 
 void SchrankenLogik::schliesse(GesteuerteSchranke &s) {
     s.schranke.schliessen();
-    if (s.offen) anzeige_.zeige(std::string(s.name) + "sschranke GESCHLOSSEN");
+    if (s.offen) anzeige_.zeige(std::string(s.name) + " GESCHLOSSEN");
     s.offen = false;
+}
+
+void SchrankenLogik::meldeBleibtGeschlossen(const GesteuerteSchranke &s) {
+    anzeige_.zeige(std::string(s.name) + " bleibt GESCHLOSSEN");
 }
 
 void SchrankenLogik::aktualisieren() {
@@ -42,32 +46,36 @@ void SchrankenLogik::aktualisieren() {
     }
 }
 
-void SchrankenLogik::bearbeite(GesteuerteSchranke &s, bool istEinfahrt, const std::string &eingabe) {
+KassenAntwort SchrankenLogik::frageKasse(const GesteuerteSchranke &s, const std::string &kz) {
+    return s.richtung == Richtung::Einfahrt ? kasse_.einfahrt(kz) : kasse_.ausfahrt(kz);
+}
+
+void SchrankenLogik::bearbeite(GesteuerteSchranke &s, const std::string &eingabe) {
     std::string kz = kennzeichen::normalisiere(eingabe);
     if (kz.empty()) {
         anzeige_.zeige("FEHLER: Kennzeichen nicht erkannt. Bitte erneut eingeben oder mit R Hilfe rufen.");
-        anzeige_.zeige(std::string(s.name) + "sschranke bleibt GESCHLOSSEN");
+        meldeBleibtGeschlossen(s);
         return;
     }
-    KassenAntwort antwort = istEinfahrt ? kasse_.einfahrt(kz) : kasse_.ausfahrt(kz);
+    KassenAntwort antwort = frageKasse(s, kz);
     switch (antwort.status) {
         case KassenAntwort::OK:
-            anzeige_.zeige((istEinfahrt ? "Willkommen " : "Gute Fahrt ") + kz + ".");
+            anzeige_.zeige(std::string(s.begruessung) + " " + kz + ".");
             oeffne(s);
             break;
         case KassenAntwort::ABGELEHNT:
             anzeige_.zeige("ABGELEHNT: " + antwort.grund + ".");
-            anzeige_.zeige(std::string(s.name) + "sschranke bleibt GESCHLOSSEN");
+            meldeBleibtGeschlossen(s);
             break;
         case KassenAntwort::KEINE_VERBINDUNG:
             anzeige_.zeige("FEHLER: Keine Verbindung zur Kasse (Pico 1). Bitte Personal rufen.");
-            anzeige_.zeige(std::string(s.name) + "sschranke bleibt GESCHLOSSEN");
+            meldeBleibtGeschlossen(s);
             break;
     }
 }
 
-void SchrankenLogik::fahrzeugAnEinfahrt(const std::string &kz) { bearbeite(einfahrt_, true, kz); }
-void SchrankenLogik::fahrzeugAnAusfahrt(const std::string &kz) { bearbeite(ausfahrt_, false, kz); }
+void SchrankenLogik::fahrzeugAnEinfahrt(const std::string &kz) { bearbeite(einfahrt_, kz); }
+void SchrankenLogik::fahrzeugAnAusfahrt(const std::string &kz) { bearbeite(ausfahrt_, kz); }
 
 void SchrankenLogik::status() {
     anzeige_.zeige(std::string("Einfahrtsschranke: ") + (einfahrt_.offen ? "OFFEN" : "GESCHLOSSEN"));
