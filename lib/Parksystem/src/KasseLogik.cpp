@@ -5,6 +5,13 @@
 #include "Text.h"
 #include "Version.h"
 
+// Haengt an und entfernt die aeltesten Eintraege, sobald mehr als maxAnzahl vorhanden sind.
+template <typename T>
+static void begrenztAnhaengen(std::deque<T> &liste, const T &eintrag, int maxAnzahl) {
+    liste.push_back(eintrag);
+    while ((int)liste.size() > maxAnzahl) liste.pop_front();
+}
+
 KasseLogik::KasseLogik(IUhr &uhr, IParkSpeicher &speicher, IAnzeige &anzeige)
     : uhr_(uhr), speicher_(speicher), anzeige_(anzeige), wanduhr_(uhr) {}
 
@@ -25,8 +32,7 @@ void KasseLogik::uhrStellen(const std::string &argument) {
 
 void KasseLogik::protokolliere(const std::string &t) {
     std::string eintrag = "[" + zeitText(uhr_.jetztMs()) + "] " + t;
-    log_.push_back(eintrag);
-    if ((int)log_.size() > MAX_LOG) log_.pop_front();
+    begrenztAnhaengen(log_, eintrag, MAX_LOG);
     anzeige_.zeige("LOG " + eintrag);
 }
 
@@ -72,8 +78,7 @@ std::string KasseLogik::ausfahrt(const std::string &eingabe) {
     Parkvorgang abgeschlossen = *p;
     abgeschlossen.ausfahrtMs = uhr_.jetztMs();
     speicher_.entfernen(kz);
-    historie_.push_back(abgeschlossen);
-    if ((int)historie_.size() > MAX_HISTORIE) historie_.pop_front();
+    begrenztAnhaengen(historie_, abgeschlossen, MAX_HISTORIE);
     protokolliere("AUSFAHRT " + kz + " abgeschlossen");
     return "";
 }
