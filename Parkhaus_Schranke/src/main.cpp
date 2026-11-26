@@ -4,7 +4,7 @@
 #include <SchrankenLogik.h>
 
 // ========================================
-// PARKSYSTEM - PICO 2 SCHRANKE  (Version 1.2)
+// PARKSYSTEM - PICO 2 SCHRANKE  (Version: siehe lib/Parksystem/src/Version.h)
 //
 // Diese Datei enthaelt nur noch die Hardware-Adapter.
 // Die gesamte Logik steht in lib/Parksystem/src/SchrankenLogik.cpp

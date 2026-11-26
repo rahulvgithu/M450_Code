@@ -2,8 +2,8 @@
 #include "Kennzeichen.h"
 #include "Tarif.h"
 #include "Text.h"
+#include "Version.h"
 
-static const char *VERSION = "1.2";
 
 KasseLogik::KasseLogik(IUhr &uhr, IParkSpeicher &speicher, IAnzeige &anzeige)
     : uhr_(uhr), speicher_(speicher), anzeige_(anzeige) {}
@@ -213,7 +213,7 @@ void KasseLogik::protokollAnzeigen() {
 
 void KasseLogik::hilfe() {
     anzeige_.zeige("");
-    anzeige_.zeige(std::string("=== PARKSYSTEM: PICO 1 KASSE v") + VERSION + " ===");
+    anzeige_.zeige(std::string("=== PARKSYSTEM: PICO 1 KASSE v") + parksystem::VERSION + " ===");
     anzeige_.zeige("T 05.11.2026 13:30:00 - Datum/Uhrzeit stellen");
     anzeige_.zeige("G LU12345 - Gebuehr anzeigen");
     anzeige_.zeige("B LU12345 - Zahlung mit Karte (erfolgreich)");
@@ -229,7 +229,7 @@ void KasseLogik::start() {
     anzeige_.zeige("");
     anzeige_.zeige("********************************");
     anzeige_.zeige("PARKSYSTEM WIRD GESTARTET");
-    anzeige_.zeige(std::string("PICO 1 - KASSE v") + VERSION);
+    anzeige_.zeige(std::string("PICO 1 - KASSE v") + parksystem::VERSION);
     anzeige_.zeige("********************************");
     hilfe();
 }

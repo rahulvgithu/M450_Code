@@ -3,7 +3,7 @@
 #include <RamParkSpeicher.h>
 
 // ========================================
-// PARKSYSTEM - PICO 1 KASSE  (Version 1.2)
+// PARKSYSTEM - PICO 1 KASSE  (Version: siehe lib/Parksystem/src/Version.h)
 //
 // Diese Datei enthaelt nur noch die Hardware-Adapter.
 // Die gesamte Logik steht in lib/Parksystem/src/KasseLogik.cpp

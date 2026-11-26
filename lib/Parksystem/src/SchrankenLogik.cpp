@@ -1,8 +1,8 @@
 #include "SchrankenLogik.h"
 #include "Kennzeichen.h"
 #include "Text.h"
+#include "Version.h"
 
-static const char *VERSION = "1.2";
 
 SchrankenLogik::SchrankenLogik(ISchranke &einfahrt, ISchranke &ausfahrt, IKasse &kasse, IUhr &uhr,
                                IAnzeige &anzeige)
@@ -16,7 +16,7 @@ void SchrankenLogik::start() {
     ein_.schranke.schliessen();
     aus_.schranke.schliessen();
     ein_.offen = aus_.offen = false;
-    anzeige_.zeige(std::string("PARKSYSTEM - PICO 2 SCHRANKE v") + VERSION);
+    anzeige_.zeige(std::string("PARKSYSTEM - PICO 2 SCHRANKE v") + parksystem::VERSION);
     hilfe();
 }
 
@@ -77,7 +77,7 @@ void SchrankenLogik::status() {
 
 void SchrankenLogik::hilfe() {
     anzeige_.zeige("");
-    anzeige_.zeige(std::string("=== PARKSYSTEM: PICO 2 SCHRANKE v") + VERSION + " ===");
+    anzeige_.zeige(std::string("=== PARKSYSTEM: PICO 2 SCHRANKE v") + parksystem::VERSION + " ===");
     anzeige_.zeige("E LU12345 - Einfahrt (Kennzeichen erfassen)");
     anzeige_.zeige("A LU12345 - Ausfahrt");
     anzeige_.zeige("S         - Beide Schranken schliessen");
