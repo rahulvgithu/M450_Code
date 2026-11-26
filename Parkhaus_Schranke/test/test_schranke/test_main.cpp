@@ -168,8 +168,69 @@ void test_geschlossene_schranke_wird_nicht_ohne_grund_bewegt() {
     TEST_ASSERT_EQUAL_INT(0, s.aus.anzahlOeffnen + s.aus.anzahlSchliessen);
 }
 
+// ---------------- Charakterisierungstests (vor dem Refactoring A04) ----------------
+// Halten die heutigen Ausgaben fest, damit sich beim Refactoring nichts aendert.
+
+static void pruefeZeilen(const AnzeigeMock &anzeige, const std::vector<std::string> &erwartet) {
+    TEST_ASSERT_EQUAL_INT((int)erwartet.size(), (int)anzeige.zeilen.size());
+    for (size_t i = 0; i < erwartet.size(); i++) {
+        TEST_ASSERT_EQUAL_STRING(erwartet[i].c_str(), anzeige.zeilen[i].c_str());
+    }
+}
+
+void test_char_startmeldung_und_hilfe() {
+    SchrankeMock ein, aus;
+    KasseStub kasse = KasseStub::erlaubtAlles();
+    UhrFake uhr;
+    AnzeigeMock anzeige;
+    SchrankenLogik logik(ein, aus, kasse, uhr, anzeige);
+    logik.start();
+    pruefeZeilen(anzeige, {"PARKSYSTEM - PICO 2 SCHRANKE v1.2", "", "=== PARKSYSTEM: PICO 2 SCHRANKE v1.2 ===",
+                           "E LU12345 - Einfahrt (Kennzeichen erfassen)", "A LU12345 - Ausfahrt",
+                           "S         - Beide Schranken schliessen", "Z         - Status Schranken und Verbindung",
+                           "R         - Hilfe vom Personal anfordern", "H         - Hilfe", ""});
+}
+
+void test_char_meldungen_einfahrt_bis_schliessen() {
+    Schranke s(KasseStub::erlaubtAlles());
+    s.logik.befehl("E LU12345");
+    s.uhr.vorspulen(5000);
+    s.logik.aktualisieren();
+    pruefeZeilen(s.anzeige, {"Willkommen LU12345.", "Einfahrtsschranke OFFEN", "Durchfahrt erfolgt.",
+                             "Einfahrtsschranke GESCHLOSSEN"});
+}
+
+void test_char_meldungen_abgelehnt_ohne_verbindung_und_status() {
+    Schranke abgelehnt(KasseStub::lehntAb("Parkhaus voll"));
+    abgelehnt.logik.befehl("E LU12345");
+    abgelehnt.logik.befehl("A");
+    pruefeZeilen(abgelehnt.anzeige,
+                 {"ABGELEHNT: Parkhaus voll.", "Einfahrtsschranke bleibt GESCHLOSSEN",
+                  "FEHLER: Kennzeichen nicht erkannt. Bitte erneut eingeben oder mit R Hilfe rufen.",
+                  "Ausfahrtsschranke bleibt GESCHLOSSEN"});
+
+    Schranke ohne(KasseStub::ohneVerbindung());
+    ohne.logik.befehl("A LU12345");
+    ohne.logik.befehl("Z");
+    pruefeZeilen(ohne.anzeige, {"FEHLER: Keine Verbindung zur Kasse (Pico 1). Bitte Personal rufen.",
+                                "Ausfahrtsschranke bleibt GESCHLOSSEN", "Einfahrtsschranke: GESCHLOSSEN",
+                                "Ausfahrtsschranke: GESCHLOSSEN", "Verbindung Kasse:  KEINE VERBINDUNG"});
+}
+
+void test_char_befehl_S_meldet_nur_offene_schranken() {
+    Schranke s(KasseStub::erlaubtAlles());
+    s.logik.befehl("A ZH54321");
+    s.anzeige.leeren();
+    s.logik.befehl("s");
+    pruefeZeilen(s.anzeige, {"Ausfahrtsschranke GESCHLOSSEN", "Beide Schranken GESCHLOSSEN"});
+}
+
 int main() {
     UNITY_BEGIN();
+    RUN_TEST(test_char_startmeldung_und_hilfe);
+    RUN_TEST(test_char_meldungen_einfahrt_bis_schliessen);
+    RUN_TEST(test_char_meldungen_abgelehnt_ohne_verbindung_und_status);
+    RUN_TEST(test_char_befehl_S_meldet_nur_offene_schranken);
     RUN_TEST(test_start_schliesst_beide_schranken);
     RUN_TEST(test_TC04_gueltiges_kennzeichen_oeffnet_nur_die_einfahrt);
     RUN_TEST(test_TC04_einfahrt_schliesst_genau_nach_5_sekunden);

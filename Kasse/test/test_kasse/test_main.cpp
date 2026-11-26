@@ -234,8 +234,68 @@ void test_dummy_anzeige_wenn_meldungen_keine_rolle_spielen() {
     TEST_ASSERT_EQUAL_UINT32(120, logik.gebuehrRappen("ZH54321"));
 }
 
+// ---------------- Charakterisierungstests (vor dem Refactoring A04) ----------------
+// Halten die heutigen Ausgaben fest, damit sich beim Refactoring nichts aendert.
+
+void test_char_startmeldung_und_hilfe() {
+    Kasse k;
+    k.logik.start();
+    std::vector<std::string> erwartet = {
+        "", "********************************", "PARKSYSTEM WIRD GESTARTET", "PICO 1 - KASSE v1.2",
+        "********************************", "", "=== PARKSYSTEM: PICO 1 KASSE v1.2 ===",
+        "T 05.11.2026 13:30:00 - Datum/Uhrzeit stellen", "G LU12345 - Gebuehr anzeigen",
+        "B LU12345 - Zahlung mit Karte (erfolgreich)", "X LU12345 - Zahlung abbrechen / fehlgeschlagen",
+        "L         - Aktive Parkvorgaenge anzeigen", "P         - Historie und Ereignisprotokoll",
+        "H         - Hilfe", "Ein- und Ausfahrt erfolgen ueber Pico 2 (Schranke).", ""};
+    TEST_ASSERT_EQUAL_INT((int)erwartet.size(), (int)k.anzeige.zeilen.size());
+    for (size_t i = 0; i < erwartet.size(); i++) {
+        TEST_ASSERT_EQUAL_STRING(erwartet[i].c_str(), k.anzeige.zeilen[i].c_str());
+    }
+}
+
+void test_char_zeit_ohne_gestellte_uhr_und_ueber_mitternacht() {
+    Kasse k;
+    TEST_ASSERT_EQUAL_STRING("65 s nach Start", k.logik.zeitText(65999).c_str());
+    k.uhr.setze(0);
+    k.logik.befehl("T 23:59:58");
+    TEST_ASSERT_TRUE(k.anzeige.enthaelt("OK: Uhr gestellt auf 23:59:58"));
+    TEST_ASSERT_EQUAL_STRING("00:00:03", k.logik.zeitText(5000).c_str());
+    k.logik.befehl("T 14.11.2026 08:05:09");
+    TEST_ASSERT_EQUAL_STRING("14.11.2026 08:05:09", k.logik.zeitText(0).c_str());
+}
+
+void test_char_meldungen_zahlung_ohne_vorgang_und_doppelt() {
+    Kasse k;
+    k.logik.befehl("G ZH54321");
+    k.logik.befehl("B ZH54321");
+    k.logik.befehl("X ZH54321");
+    TEST_ASSERT_EQUAL_INT(3, k.anzeige.anzahl("FEHLER: Kein aktiver Parkvorgang."));
+    k.logik.einfahrt("ZH54321");
+    k.logik.bezahlen("ZH54321");
+    k.logik.befehl("B ZH54321");
+    k.logik.befehl("X ZH54321");
+    TEST_ASSERT_EQUAL_INT(2, k.anzeige.anzahl("INFO: Bereits bezahlt."));
+}
+
+void test_char_protokoll_und_historie_sind_begrenzt() {
+    Kasse k;
+    for (int i = 1; i <= 25; i++) {
+        std::string kz = "LU" + std::to_string(i);
+        k.logik.einfahrt(kz);
+        k.logik.bezahlen(kz);
+        k.logik.ausfahrt(kz);
+    }
+    TEST_ASSERT_EQUAL_INT(KasseLogik::MAX_HISTORIE, (int)k.logik.historie().size());
+    TEST_ASSERT_EQUAL_STRING("LU6", k.logik.historie().front().kennzeichen.c_str());
+    TEST_ASSERT_EQUAL_INT(KasseLogik::MAX_LOG, (int)k.logik.protokoll().size());
+}
+
 int main() {
     UNITY_BEGIN();
+    RUN_TEST(test_char_startmeldung_und_hilfe);
+    RUN_TEST(test_char_zeit_ohne_gestellte_uhr_und_ueber_mitternacht);
+    RUN_TEST(test_char_meldungen_zahlung_ohne_vorgang_und_doppelt);
+    RUN_TEST(test_char_protokoll_und_historie_sind_begrenzt);
     RUN_TEST(test_TC01_einfahrt_speichert_kennzeichen_mit_datum_und_uhrzeit);
     RUN_TEST(test_TC02_einfahrtszeit_entspricht_exakt_der_uhrzeit);
     RUN_TEST(test_TC03_leeres_kennzeichen_wird_abgelehnt_ohne_parkvorgang);
