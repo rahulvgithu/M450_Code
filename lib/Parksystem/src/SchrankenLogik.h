@@ -25,25 +25,25 @@ public:
     // Regelmaessig aus loop() aufrufen: schliesst offene Schranken nach der Durchfahrt
     void aktualisieren();
 
-    bool einfahrtOffen() const { return ein_.offen; }
-    bool ausfahrtOffen() const { return aus_.offen; }
+    bool einfahrtOffen() const { return einfahrt_.offen; }
+    bool ausfahrtOffen() const { return ausfahrt_.offen; }
 
 private:
-    struct Zustand {
+    struct GesteuerteSchranke {
         const char *name;
         ISchranke &schranke;
         bool offen;
         unsigned long geoeffnetMs;
     };
 
-    void bearbeite(Zustand &s, bool istEinfahrt, const std::string &kennzeichen);
-    void oeffne(Zustand &s);
-    void schliesse(Zustand &s);
+    void bearbeite(GesteuerteSchranke &s, bool istEinfahrt, const std::string &kennzeichen);
+    void oeffne(GesteuerteSchranke &s);
+    void schliesse(GesteuerteSchranke &s);
     void status();
     void hilfe();
 
-    Zustand ein_;
-    Zustand aus_;
+    GesteuerteSchranke einfahrt_;
+    GesteuerteSchranke ausfahrt_;
     IKasse &kasse_;
     IUhr &uhr_;
     IAnzeige &anzeige_;

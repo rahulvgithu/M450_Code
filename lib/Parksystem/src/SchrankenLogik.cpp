@@ -6,35 +6,35 @@
 
 SchrankenLogik::SchrankenLogik(ISchranke &einfahrt, ISchranke &ausfahrt, IKasse &kasse, IUhr &uhr,
                                IAnzeige &anzeige)
-    : ein_{"Einfahrt", einfahrt, false, 0},
-      aus_{"Ausfahrt", ausfahrt, false, 0},
+    : einfahrt_{"Einfahrt", einfahrt, false, 0},
+      ausfahrt_{"Ausfahrt", ausfahrt, false, 0},
       kasse_(kasse),
       uhr_(uhr),
       anzeige_(anzeige) {}
 
 void SchrankenLogik::start() {
-    ein_.schranke.schliessen();
-    aus_.schranke.schliessen();
-    ein_.offen = aus_.offen = false;
+    einfahrt_.schranke.schliessen();
+    ausfahrt_.schranke.schliessen();
+    einfahrt_.offen = ausfahrt_.offen = false;
     anzeige_.zeige(std::string("PARKSYSTEM - PICO 2 SCHRANKE v") + parksystem::VERSION);
     hilfe();
 }
 
-void SchrankenLogik::oeffne(Zustand &s) {
+void SchrankenLogik::oeffne(GesteuerteSchranke &s) {
     s.schranke.oeffnen();
     s.offen = true;
     s.geoeffnetMs = uhr_.jetztMs();
     anzeige_.zeige(std::string(s.name) + "sschranke OFFEN");
 }
 
-void SchrankenLogik::schliesse(Zustand &s) {
+void SchrankenLogik::schliesse(GesteuerteSchranke &s) {
     s.schranke.schliessen();
     if (s.offen) anzeige_.zeige(std::string(s.name) + "sschranke GESCHLOSSEN");
     s.offen = false;
 }
 
 void SchrankenLogik::aktualisieren() {
-    for (Zustand *s : {&ein_, &aus_}) {
+    for (GesteuerteSchranke *s : {&einfahrt_, &ausfahrt_}) {
         if (s->offen && uhr_.jetztMs() - s->geoeffnetMs >= OFFEN_DAUER_MS) {
             anzeige_.zeige("Durchfahrt erfolgt.");
             schliesse(*s);
@@ -42,7 +42,7 @@ void SchrankenLogik::aktualisieren() {
     }
 }
 
-void SchrankenLogik::bearbeite(Zustand &s, bool istEinfahrt, const std::string &eingabe) {
+void SchrankenLogik::bearbeite(GesteuerteSchranke &s, bool istEinfahrt, const std::string &eingabe) {
     std::string kz = kennzeichen::normalisiere(eingabe);
     if (kz.empty()) {
         anzeige_.zeige("FEHLER: Kennzeichen nicht erkannt. Bitte erneut eingeben oder mit R Hilfe rufen.");
@@ -66,12 +66,12 @@ void SchrankenLogik::bearbeite(Zustand &s, bool istEinfahrt, const std::string &
     }
 }
 
-void SchrankenLogik::fahrzeugAnEinfahrt(const std::string &kz) { bearbeite(ein_, true, kz); }
-void SchrankenLogik::fahrzeugAnAusfahrt(const std::string &kz) { bearbeite(aus_, false, kz); }
+void SchrankenLogik::fahrzeugAnEinfahrt(const std::string &kz) { bearbeite(einfahrt_, true, kz); }
+void SchrankenLogik::fahrzeugAnAusfahrt(const std::string &kz) { bearbeite(ausfahrt_, false, kz); }
 
 void SchrankenLogik::status() {
-    anzeige_.zeige(std::string("Einfahrtsschranke: ") + (ein_.offen ? "OFFEN" : "GESCHLOSSEN"));
-    anzeige_.zeige(std::string("Ausfahrtsschranke: ") + (aus_.offen ? "OFFEN" : "GESCHLOSSEN"));
+    anzeige_.zeige(std::string("Einfahrtsschranke: ") + (einfahrt_.offen ? "OFFEN" : "GESCHLOSSEN"));
+    anzeige_.zeige(std::string("Ausfahrtsschranke: ") + (ausfahrt_.offen ? "OFFEN" : "GESCHLOSSEN"));
     anzeige_.zeige(std::string("Verbindung Kasse:  ") + (kasse_.verbunden() ? "OK" : "KEINE VERBINDUNG"));
 }
 
@@ -96,8 +96,8 @@ void SchrankenLogik::befehl(const std::string &eingabe) {
         case 'E': fahrzeugAnEinfahrt(argument); break;
         case 'A': fahrzeugAnAusfahrt(argument); break;
         case 'S':
-            schliesse(ein_);
-            schliesse(aus_);
+            schliesse(einfahrt_);
+            schliesse(ausfahrt_);
             anzeige_.zeige("Beide Schranken GESCHLOSSEN");
             break;
         case 'Z': status(); break;
