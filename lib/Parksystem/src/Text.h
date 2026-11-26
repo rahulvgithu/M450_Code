@@ -39,4 +39,19 @@ inline std::string betrag(unsigned long rappen) {
     return "CHF " + zahl(rappen / 100UL) + "." + zweistellig(rappen % 100UL);
 }
 
+// Terminal-Eingabe "E LU12345" -> Buchstabe 'E', Argument " LU12345"
+struct Befehl {
+    char buchstabe;
+    std::string argument;
+};
+
+// false bei leerer Eingabe
+inline bool zerlegeBefehl(const std::string &eingabe, Befehl &befehl) {
+    std::string zeile = trim(eingabe);
+    if (zeile.empty()) return false;
+    befehl.buchstabe = (char)std::toupper((unsigned char)zeile[0]);
+    befehl.argument = zeile.substr(1);
+    return true;
+}
+
 } // namespace text

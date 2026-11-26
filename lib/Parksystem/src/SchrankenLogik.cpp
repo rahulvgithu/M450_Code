@@ -95,24 +95,26 @@ void SchrankenLogik::hilfe() {
     anzeige_.zeige("");
 }
 
+void SchrankenLogik::alleSchliessen() {
+    schliesse(einfahrt_);
+    schliesse(ausfahrt_);
+    anzeige_.zeige("Beide Schranken GESCHLOSSEN");
+}
+
+void SchrankenLogik::hilfeRufen() {
+    anzeige_.zeige(kasse_.hilfeRufen() ? "Hilferuf gesendet. Das Personal wurde informiert."
+                                       : "Keine Verbindung zur Kasse. Bitte Notruftaste benutzen.");
+}
+
 void SchrankenLogik::befehl(const std::string &eingabe) {
-    std::string zeile = text::trim(eingabe);
-    if (zeile.empty()) return;
-    char b = (char)std::toupper((unsigned char)zeile[0]);
-    std::string argument = zeile.substr(1);
-    switch (b) {
-        case 'E': fahrzeugAnEinfahrt(argument); break;
-        case 'A': fahrzeugAnAusfahrt(argument); break;
-        case 'S':
-            schliesse(einfahrt_);
-            schliesse(ausfahrt_);
-            anzeige_.zeige("Beide Schranken GESCHLOSSEN");
-            break;
+    text::Befehl b;
+    if (!text::zerlegeBefehl(eingabe, b)) return;
+    switch (b.buchstabe) {
+        case 'E': fahrzeugAnEinfahrt(b.argument); break;
+        case 'A': fahrzeugAnAusfahrt(b.argument); break;
+        case 'S': alleSchliessen(); break;
         case 'Z': status(); break;
-        case 'R':
-            anzeige_.zeige(kasse_.hilfeRufen() ? "Hilferuf gesendet. Das Personal wurde informiert."
-                                               : "Keine Verbindung zur Kasse. Bitte Notruftaste benutzen.");
-            break;
+        case 'R': hilfeRufen(); break;
         case 'H': hilfe(); break;
         default: anzeige_.zeige("Unbekannter Befehl. H fuer Hilfe."); break;
     }

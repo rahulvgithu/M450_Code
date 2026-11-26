@@ -209,11 +209,10 @@ void KasseLogik::start() {
 }
 
 void KasseLogik::befehl(const std::string &eingabe) {
-    std::string zeile = text::trim(eingabe);
-    if (zeile.empty()) return;
-    char b = (char)std::toupper((unsigned char)zeile[0]);
-    std::string argument = text::trim(zeile.substr(1));
-    switch (b) {
+    text::Befehl b;
+    if (!text::zerlegeBefehl(eingabe, b)) return;
+    std::string argument = text::trim(b.argument);
+    switch (b.buchstabe) {
         case 'T': uhrStellen(argument); break;
         case 'G': gebuehrAnzeigen(argument); break;
         case 'B': bezahlen(argument); break;

@@ -45,6 +45,8 @@ private:
     void oeffne(GesteuerteSchranke &s);
     void schliesse(GesteuerteSchranke &s);
     void meldeBleibtGeschlossen(const GesteuerteSchranke &s);
+    void alleSchliessen();
+    void hilfeRufen();
     void status();
     void hilfe();
 
