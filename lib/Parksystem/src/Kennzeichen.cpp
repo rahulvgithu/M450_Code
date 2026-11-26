@@ -15,21 +15,28 @@ std::string normalisiere(const std::string &eingabe) {
     return ergebnis;
 }
 
-bool istGueltig(const std::string &kz) {
-    if (kz.size() < 3 || kz.size() > 8) return false;
-    std::string kanton = kz.substr(0, 2);
-    bool kantonOk = false;
+static const size_t KANTON_LAENGE = 2;
+static const size_t MIN_ZIFFERN = 1;
+static const size_t MAX_ZIFFERN = 6;
+
+static bool istKanton(const std::string &kuerzel) {
     for (const char *k : KANTONE) {
-        if (kanton == k) {
-            kantonOk = true;
-            break;
-        }
+        if (kuerzel == k) return true;
     }
-    if (!kantonOk || kz[2] == '0') return false;
-    for (size_t i = 2; i < kz.size(); i++) {
-        if (kz[i] < '0' || kz[i] > '9') return false;
+    return false;
+}
+
+static bool sindNurZiffern(const std::string &s) {
+    for (char c : s) {
+        if (c < '0' || c > '9') return false;
     }
     return true;
+}
+
+bool istGueltig(const std::string &kz) {
+    if (kz.size() < KANTON_LAENGE + MIN_ZIFFERN || kz.size() > KANTON_LAENGE + MAX_ZIFFERN) return false;
+    std::string nummer = kz.substr(KANTON_LAENGE);
+    return istKanton(kz.substr(0, KANTON_LAENGE)) && nummer[0] != '0' && sindNurZiffern(nummer);
 }
 
 } // namespace kennzeichen
