@@ -54,10 +54,14 @@ private:
 // IKasse -> UART-Verbindung zu Pico 1
 class UartKasse : public IKasse {
 public:
-    KassenAntwort einfahrt(const std::string &kz) override { return protokoll::auswerten(anfrage("REG " + kz)); }
-    KassenAntwort ausfahrt(const std::string &kz) override { return protokoll::auswerten(anfrage("EXIT " + kz)); }
-    bool verbunden() override { return anfrage("PING") == "PONG"; }
-    bool hilfeRufen() override { return anfrage("HELP") == "OK HELP"; }
+    KassenAntwort einfahrt(const std::string &kz) override {
+        return protokoll::auswerten(anfrage(protokoll::anfrage(protokoll::EINFAHRT, kz)));
+    }
+    KassenAntwort ausfahrt(const std::string &kz) override {
+        return protokoll::auswerten(anfrage(protokoll::anfrage(protokoll::AUSFAHRT, kz)));
+    }
+    bool verbunden() override { return anfrage(protokoll::PING) == protokoll::PONG; }
+    bool hilfeRufen() override { return anfrage(protokoll::HILFE) == protokoll::okAntwort(protokoll::HILFE); }
 
 private:
     // Sendet eine Zeile und wartet max. 2 s auf die Antwort ("" bei Timeout)

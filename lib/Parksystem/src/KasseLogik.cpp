@@ -1,9 +1,9 @@
 #include "KasseLogik.h"
+#include "KassenProtokoll.h"
 #include "Kennzeichen.h"
 #include "Tarif.h"
 #include "Text.h"
 #include "Version.h"
-
 
 KasseLogik::KasseLogik(IUhr &uhr, IParkSpeicher &speicher, IAnzeige &anzeige)
     : uhr_(uhr), speicher_(speicher), anzeige_(anzeige) {}
@@ -115,23 +115,25 @@ std::string KasseLogik::ausfahrt(const std::string &eingabe) {
 std::string KasseLogik::verarbeiteAnfrage(const std::string &eingabe) {
     std::string zeile = text::trim(eingabe);
     if (zeile.empty()) return "";
-    if (zeile == "PING") return "PONG";
-    if (zeile == "HELP") {
+    if (zeile == protokoll::PING) return protokoll::PONG;
+    if (zeile == protokoll::HILFE) {
         protokolliere("HILFERUF von Pico 2 (Schranke)");
         anzeige_.zeige("!!! HILFERUF AN DER SCHRANKE !!!");
-        return "OK HELP";
+        return protokoll::okAntwort(protokoll::HILFE);
     }
-    if (text::beginntMit(zeile, "REG")) {
-        std::string kz = kennzeichen::normalisiere(zeile.substr(3));
+    if (protokoll::istAnfrage(zeile, protokoll::EINFAHRT)) {
+        std::string kz = kennzeichen::normalisiere(protokoll::argument(zeile, protokoll::EINFAHRT));
         std::string fehler = einfahrt(kz);
-        return fehler.empty() ? "OK REG " + kz : "ERR REG " + fehler;
+        return fehler.empty() ? protokoll::okAntwort(protokoll::EINFAHRT, kz)
+                              : protokoll::fehlerAntwort(protokoll::EINFAHRT, fehler);
     }
-    if (text::beginntMit(zeile, "EXIT")) {
-        std::string kz = kennzeichen::normalisiere(zeile.substr(4));
+    if (protokoll::istAnfrage(zeile, protokoll::AUSFAHRT)) {
+        std::string kz = kennzeichen::normalisiere(protokoll::argument(zeile, protokoll::AUSFAHRT));
         std::string fehler = ausfahrt(kz);
-        return fehler.empty() ? "OK EXIT " + kz : "ERR EXIT " + fehler;
+        return fehler.empty() ? protokoll::okAntwort(protokoll::AUSFAHRT, kz)
+                              : protokoll::fehlerAntwort(protokoll::AUSFAHRT, fehler);
     }
-    return "ERR Unbekannte Anfrage";
+    return std::string(protokoll::FEHLER) + " Unbekannte Anfrage";
 }
 
 // ------------------------------------------------------------

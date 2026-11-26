@@ -14,10 +14,14 @@ class KasseSpy : public IKasse {
 public:
     explicit KasseSpy(KasseLogik &echteKasse) : kasse_(echteKasse) {}
 
-    KassenAntwort einfahrt(const std::string &kz) override { return protokoll::auswerten(senden("REG " + kz)); }
-    KassenAntwort ausfahrt(const std::string &kz) override { return protokoll::auswerten(senden("EXIT " + kz)); }
-    bool verbunden() override { return senden("PING") == "PONG"; }
-    bool hilfeRufen() override { return senden("HELP") == "OK HELP"; }
+    KassenAntwort einfahrt(const std::string &kz) override {
+        return protokoll::auswerten(senden(protokoll::anfrage(protokoll::EINFAHRT, kz)));
+    }
+    KassenAntwort ausfahrt(const std::string &kz) override {
+        return protokoll::auswerten(senden(protokoll::anfrage(protokoll::AUSFAHRT, kz)));
+    }
+    bool verbunden() override { return senden(protokoll::PING) == protokoll::PONG; }
+    bool hilfeRufen() override { return senden(protokoll::HILFE) == protokoll::okAntwort(protokoll::HILFE); }
 
     std::vector<std::string> anfragen;  // was Pico 2 gesendet hat
     std::vector<std::string> antworten; // was Pico 1 geantwortet hat
