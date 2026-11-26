@@ -22,8 +22,8 @@ const int SERVO_EIN_PIN = 8;
 const int SERVO_AUS_PIN = 9;
 const int WINKEL_GESCHLOSSEN = 0;
 const int WINKEL_OFFEN = 90;
-const unsigned long UART_BAUD = 9600;
 const unsigned long ANTWORT_TIMEOUT_MS = 2000;
+const unsigned long SERVO_STELLZEIT_MS = 1000; // Servos fahren beim Start in die Grundstellung
 
 // ---------- Adapter, die nur Pico 2 braucht ----------
 
@@ -77,15 +77,11 @@ UartKasse kasse;
 SchrankenLogik logik(einfahrtSchranke, ausfahrtSchranke, kasse, uhr, anzeige);
 
 void setup() {
-    Serial.begin(115200);
-    Serial1.setTX(0);
-    Serial1.setRX(1);
-    Serial1.begin(UART_BAUD);
-    delay(2000);
+    pico::starteSchnittstellen();
     einfahrtSchranke.begin();
     ausfahrtSchranke.begin();
     logik.start(); // schliesst beide Schranken
-    delay(1000);
+    delay(SERVO_STELLZEIT_MS);
 }
 
 void loop() {
