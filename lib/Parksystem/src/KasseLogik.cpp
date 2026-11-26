@@ -116,12 +116,24 @@ unsigned long KasseLogik::aktuelleGebuehr(const Parkvorgang &p) const {
     return tarif::gebuehrRappen(uhr_.jetztMs() - p.einfahrtMs);
 }
 
-void KasseLogik::gebuehrAnzeigen(const std::string &kz) {
+Parkvorgang *KasseLogik::findeOderMelde(const std::string &kz) {
     Parkvorgang *p = finde(kz);
-    if (p == nullptr) {
-        anzeige_.zeige("FEHLER: Kein aktiver Parkvorgang.");
-        return;
+    if (p == nullptr) anzeige_.zeige("FEHLER: Kein aktiver Parkvorgang.");
+    return p;
+}
+
+Parkvorgang *KasseLogik::findeUnbezahltOderMelde(const std::string &kz) {
+    Parkvorgang *p = findeOderMelde(kz);
+    if (p != nullptr && p->bezahlt) {
+        anzeige_.zeige("INFO: Bereits bezahlt.");
+        return nullptr;
     }
+    return p;
+}
+
+void KasseLogik::gebuehrAnzeigen(const std::string &kz) {
+    Parkvorgang *p = findeOderMelde(kz);
+    if (p == nullptr) return;
     unsigned long dauerMs = uhr_.jetztMs() - p->einfahrtMs;
     anzeige_.zeige("Kennzeichen:    " + p->kennzeichen);
     anzeige_.zeige("Einfahrt:       " + zeitText(p->einfahrtMs));
@@ -131,15 +143,8 @@ void KasseLogik::gebuehrAnzeigen(const std::string &kz) {
 }
 
 void KasseLogik::bezahlen(const std::string &kz) {
-    Parkvorgang *p = finde(kz);
-    if (p == nullptr) {
-        anzeige_.zeige("FEHLER: Kein aktiver Parkvorgang.");
-        return;
-    }
-    if (p->bezahlt) {
-        anzeige_.zeige("INFO: Bereits bezahlt.");
-        return;
-    }
+    Parkvorgang *p = findeUnbezahltOderMelde(kz);
+    if (p == nullptr) return;
     p->betragRappen = aktuelleGebuehr(*p);
     p->bezahlt = true;
     anzeige_.zeige("Zahlungsmethode: Karte");
@@ -148,15 +153,8 @@ void KasseLogik::bezahlen(const std::string &kz) {
 }
 
 void KasseLogik::zahlungAbbrechen(const std::string &kz) {
-    Parkvorgang *p = finde(kz);
-    if (p == nullptr) {
-        anzeige_.zeige("FEHLER: Kein aktiver Parkvorgang.");
-        return;
-    }
-    if (p->bezahlt) {
-        anzeige_.zeige("INFO: Bereits bezahlt.");
-        return;
-    }
+    Parkvorgang *p = findeUnbezahltOderMelde(kz);
+    if (p == nullptr) return;
     anzeige_.zeige("ZAHLUNG FEHLGESCHLAGEN: Vorgang abgebrochen. Status bleibt UNBEZAHLT.");
     protokolliere("ZAHLUNG " + p->kennzeichen + " fehlgeschlagen/abgebrochen");
 }

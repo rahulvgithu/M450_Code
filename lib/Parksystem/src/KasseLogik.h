@@ -46,6 +46,8 @@ private:
     void protokolliere(const std::string &text);
     Parkvorgang *finde(const std::string &kz) const;
     unsigned long aktuelleGebuehr(const Parkvorgang &vorgang) const;
+    Parkvorgang *findeOderMelde(const std::string &kz);
+    Parkvorgang *findeUnbezahltOderMelde(const std::string &kz);
 
     IUhr &uhr_;
     IParkSpeicher &speicher_;
